@@ -25,6 +25,62 @@
 #define APP_DCM_CLIENT_ID   (0U)
 
 /* =========================================================================
+ * UDS $19 01 — ReportNumberOfDTCByStatusMask
+ * ========================================================================= */
+
+/**
+ * @brief  Return the DTCStatusAvailabilityMask and the number of DTCs that
+ *         match the given statusMask.
+ *
+ * UDS service mapping:
+ *   0x19 0x01 is typically "ReportNumberOfDTCByStatusMask".
+ *
+ * DEM internal flow:
+ *   Dem_GetDTCStatusAvailabilityMask()
+ *     → returns which UDS status bits are supported by DEM (here: 0xFF)
+ *
+ *   Dem_SetDTCFilter(statusMask, ...)
+ *     → stores filter params and resets iterator
+ *
+ *   Dem_GetNumberOfFilteredDTC()
+ *     → counts all DTCs where (UdsStatus & statusMask) != 0
+ *
+ * Response buffer (minimal example):
+ *   Byte0: DTCStatusAvailabilityMask
+ *   Byte1: DTCCount high byte
+ *   Byte2: DTCCount low byte
+ *
+ * @param statusMask UDS status byte bitmask (e.g. 0x08 = CDTC)
+ */
+void App_Dcm_Service19_01(uint8 statusMask, uint8 *respBuf, uint16 *respLen)
+{
+    Dem_UdsStatusByteType availMask = 0U;
+    uint16 count = 0U;
+
+    if ((respBuf == NULL_PTR) || (respLen == NULL_PTR)) { return; }
+    *respLen = 0U;
+
+    /* 1) Which status bits are supported? */
+    (void)Dem_GetDTCStatusAvailabilityMask(APP_DCM_CLIENT_ID, &availMask);
+
+    /* 2) Count matching DTCs */
+    (void)Dem_SetDTCFilter(APP_DCM_CLIENT_ID,
+                           statusMask,
+                           DEM_DTC_KIND_ALL_DTCS,
+                           DEM_DTC_FORMAT_UDS,
+                           DEM_DTC_ORIGIN_PRIMARY_MEMORY,
+                           DEM_FILTER_WITH_SEVERITY_NO,
+                           DEM_SEVERITY_NO_SEVERITY,
+                           DEM_FILTER_FOR_FDC_NO);
+    (void)Dem_GetNumberOfFilteredDTC(APP_DCM_CLIENT_ID, &count);
+
+    /* 3) Pack response */
+    respBuf[(*respLen)++] = (uint8)availMask;
+    respBuf[(*respLen)++] = (uint8)(count >> 8U);
+    respBuf[(*respLen)++] = (uint8)(count & 0xFFU);
+}
+
+/* =========================================================================
  * UDS $19 02 — ReadDTCInformationByStatusMask
  * ========================================================================= */
 

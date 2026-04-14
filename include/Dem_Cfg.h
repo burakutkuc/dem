@@ -53,6 +53,20 @@
 #define DEM_DEV_ERROR_DETECT            STD_ON
 
 /* =========================================================================
+ * Critical section macros (bare-metal IRQ-safe integration)
+ *
+ * Override these macros in your project build (e.g. via compiler defines or
+ * a wrapper header) to disable/restore interrupts around critical sections.
+ * Default is no-op.
+ * ========================================================================= */
+#ifndef DEM_ENTER_CRITICAL
+#define DEM_ENTER_CRITICAL()  do { } while (0)
+#endif
+#ifndef DEM_EXIT_CRITICAL
+#define DEM_EXIT_CRITICAL()   do { } while (0)
+#endif
+
+/* =========================================================================
  * Operation cycle IDs
  * ========================================================================= */
 #define DEM_OPCYCLE_IGNITION            (0U)

@@ -9,6 +9,7 @@
  */
 
 #include "Dem_Cbk.h"
+#include "Dem_Notify.h"
 
 #if defined(__GNUC__) || defined(__clang__)
   #define DEM_WEAK __attribute__((weak))
@@ -21,7 +22,15 @@ DEM_WEAK void DemTriggerOnEventUdsStatus(Dem_EventIdType EventId,
                                         Dem_UdsStatusByteType OldStatus,
                                         Dem_UdsStatusByteType NewStatus)
 {
-    (void)EventId; (void)OldStatus; (void)NewStatus;
+    Dem_NotifyEvent ev;
+    ev.Type         = DEM_NOTIFY_UDS_STATUS_CHANGED;
+    ev.EventId      = EventId;
+    ev.OldUdsStatus = OldStatus;
+    ev.NewUdsStatus = NewStatus;
+    ev.Dtc          = 0U;
+    ev.Origin       = DEM_DTC_ORIGIN_PRIMARY_MEMORY;
+
+    (void)Dem_Notify_PushFromIsr(&ev);
 }
 #endif
 
@@ -53,7 +62,14 @@ DEM_WEAK void DemGeneralTriggerOnMonitorStatus(Dem_EventIdType EventId,
 #if (DEM_CB_ENABLE_EVENT_DATA_CHANGED == STD_ON)
 DEM_WEAK void EventDataChanged(Dem_EventIdType EventId)
 {
-    (void)EventId;
+    Dem_NotifyEvent ev;
+    ev.Type         = DEM_NOTIFY_EVENT_DATA_CHANGED;
+    ev.EventId      = EventId;
+    ev.OldUdsStatus = 0U;
+    ev.NewUdsStatus = 0U;
+    ev.Dtc          = 0U;
+    ev.Origin       = DEM_DTC_ORIGIN_PRIMARY_MEMORY;
+    (void)Dem_Notify_PushFromIsr(&ev);
 }
 #endif
 
@@ -68,7 +84,14 @@ DEM_WEAK Std_ReturnType ClearEventAllowed(Dem_EventIdType EventId)
 #if (DEM_CB_ENABLE_CLEAR_DTC_NOTIFICATION == STD_ON)
 DEM_WEAK void ClearDtcNotification(uint32 Dtc, Dem_DTCOriginType Origin)
 {
-    (void)Dtc; (void)Origin;
+    Dem_NotifyEvent ev;
+    ev.Type         = DEM_NOTIFY_DTC_CLEARED;
+    ev.EventId      = DEM_EVENT_INVALID;
+    ev.OldUdsStatus = 0U;
+    ev.NewUdsStatus = 0U;
+    ev.Dtc          = Dtc;
+    ev.Origin       = Origin;
+    (void)Dem_Notify_PushFromIsr(&ev);
 }
 #endif
 

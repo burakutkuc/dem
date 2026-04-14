@@ -17,6 +17,7 @@
 #include "Dem.h"
 #include "Dem_Cbk.h"
 #include "Dem_FreezeFrameProvider.h"
+#include "Dem_Notify.h"
 
 /* =========================================================================
  * External provider callbacks (example implementations)
@@ -100,6 +101,33 @@ void InitMonitorForEvent(Dem_EventIdType EventId, Dem_InitMonitorReasonType Reas
     (void)EventId; (void)Reason;
 }
 #endif
+
+/* =========================================================================
+ * Notify drain example (upper layer)
+ * ========================================================================= */
+
+void App_Dem_NotifyDrainTask(void)
+{
+    Dem_NotifyEvent ev;
+
+    while (Dem_Notify_Pop(&ev)) {
+        switch (ev.Type) {
+            case DEM_NOTIFY_UDS_STATUS_CHANGED:
+                /* Example: set application flag / update telemetry */
+                /* ev.EventId, ev.OldUdsStatus, ev.NewUdsStatus */
+                break;
+
+            case DEM_NOTIFY_DTC_CLEARED:
+                /* Example: refresh cached DTC list */
+                /* ev.Dtc, ev.Origin */
+                break;
+
+            case DEM_NOTIFY_EVENT_DATA_CHANGED:
+            default:
+                break;
+        }
+    }
+}
 
 /* =========================================================================
  * HAL stubs — replace with real sensor read functions
