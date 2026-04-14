@@ -17,6 +17,9 @@
 #include "Dem_Internal.h"
 #include <string.h>   /* memcpy */
 
+/* Forward declarations used before their definitions */
+Std_ReturnType Dem_NvM_InitBlockCallback(void);
+
 /* =========================================================================
  * NvM abstraction macros
  * Replace with NvM_ReadBlock() / NvM_WriteBlock() in real BSW context.

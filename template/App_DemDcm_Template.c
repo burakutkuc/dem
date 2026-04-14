@@ -18,6 +18,7 @@
  */
 
 #include "Dem.h"
+#include "Dem_Cbk.h"
 #include <string.h>   /* memset */
 
 /* Single client ID — DEM_MULTIPLE_CLIENTS is STD_OFF */

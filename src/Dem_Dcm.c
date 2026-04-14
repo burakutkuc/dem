@@ -10,6 +10,9 @@
 
 #include "Dem_Internal.h"
 
+/* Forward declarations (used by this module) */
+extern sint8 Dem_Debounce_GetFDC(Dem_EventIdType EventId);
+
 /* =========================================================================
  * §8.3.4.1  DTC status and translation
  * ========================================================================= */
@@ -586,7 +589,4 @@ Std_ReturnType Dem_EnableDTCSetting(uint32 DTCGroup)
     return E_OK;
 }
 
-/* =========================================================================
- * Forward declare debounce helper used in GetNextFilteredDTCAndFDC
- * ========================================================================= */
-extern sint8 Dem_Debounce_GetFDC(Dem_EventIdType EventId);
+/* End of file */

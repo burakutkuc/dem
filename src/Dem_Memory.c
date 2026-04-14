@@ -11,6 +11,12 @@
  */
 
 #include "Dem_Internal.h"
+#include "Dem_Cbk.h"
+#include "Dem_FreezeFrameProvider.h"
+
+/* Forward declarations used before their definitions */
+extern void Dem_Debounce_Reset(Dem_EventIdType EventId,
+                              Dem_DebounceResetStatusType ResetStatus);
 
 /* =========================================================================
  * Internal helpers
@@ -64,21 +70,59 @@ static uint8 Dem_Memory_FindDisplacementCandidate(void)
     return candidate;
 }
 
-/** Capture a minimal freeze frame snapshot (UDS status + occurrence counter). */
+/** Capture FreezeFrame via external provider callback (ReadDataElement). */
 #if (DEM_FREEZE_FRAME_SUPPORT == STD_ON)
 static void Dem_Memory_CaptureFreezeFrame(uint8 slotIdx, Dem_EventIdType EventId)
 {
     Dem_FreezeFrameType *ff = &Dem_PrimaryMemory[slotIdx].FreezeFrame;
 
-    /* Simple snapshot: UDS status byte at time of failure + occurrence */
     ff->RecordNumber    = 0x01U;
-    ff->Data[0]         = Dem_EventRuntime[EventId - 1U].UdsStatus;
-    ff->Data[1]         = Dem_PrimaryMemory[slotIdx].OccurrenceCounter;
-    ff->Data[2]         = (uint8)(Dem_TimestampCounter >> 24U);
-    ff->Data[3]         = (uint8)(Dem_TimestampCounter >> 16U);
-    ff->Data[4]         = (uint8)(Dem_TimestampCounter >>  8U);
-    ff->Data[5]         = (uint8)(Dem_TimestampCounter);
-    /* Remaining bytes left 0 — would be filled by application data callbacks */
+    /* Default: clear buffer */
+    {
+        uint8 i;
+        for (i = 0U; i < DEM_FREEZE_FRAME_SIZE; i++) {
+            ff->Data[i] = 0U;
+        }
+    }
+
+    /* Always available fields from DEM runtime */
+    ff->Data[0] = Dem_EventRuntime[EventId - 1U].UdsStatus;
+    Dem_FF_PackU32LE(&ff->Data[1], Dem_TimestampCounter);
+    ff->Data[11] = Dem_PrimaryMemory[slotIdx].OccurrenceCounter;
+
+#if (DEM_CB_ENABLE_READ_DATA_ELEMENT == STD_ON)
+    /* Ask upper layer for domain-specific data elements */
+    {
+        uint16 sz;
+        uint16 v_u16;
+        sint16 v_s16;
+
+        /* BatteryVoltage_mV */
+        sz = sizeof(v_u16);
+        if (ReadDataElement(EventId, DEM_FF_DEID_BATTERY_MV, (uint8*)&v_u16, &sz) == E_OK &&
+            sz == sizeof(v_u16))
+        {
+            Dem_FF_PackU16LE(&ff->Data[5], v_u16);
+        }
+
+        /* Temp1_centiDegC */
+        sz = sizeof(v_s16);
+        if (ReadDataElement(EventId, DEM_FF_DEID_TEMP1_CENTIDEGC, (uint8*)&v_s16, &sz) == E_OK &&
+            sz == sizeof(v_s16))
+        {
+            Dem_FF_PackS16LE(&ff->Data[7], v_s16);
+        }
+
+        /* Temp2_centiDegC */
+        sz = sizeof(v_s16);
+        if (ReadDataElement(EventId, DEM_FF_DEID_TEMP2_CENTIDEGC, (uint8*)&v_s16, &sz) == E_OK &&
+            sz == sizeof(v_s16))
+        {
+            Dem_FF_PackS16LE(&ff->Data[9], v_s16);
+        }
+    }
+#endif
+
     ff->Valid           = TRUE;
 }
 #endif
@@ -111,6 +155,7 @@ static void Dem_Memory_CaptureExtendedData(uint8 slotIdx, Dem_EventIdType EventI
 uint8 Dem_Memory_StoreEvent(Dem_EventIdType EventId)
 {
     uint8 slotIdx;
+    uint8 wroteOrUpdated = FALSE;
 
     /* Storage conditions check */
     if (Dem_DTCSettingDisabled != FALSE) {
@@ -130,6 +175,7 @@ uint8 Dem_Memory_StoreEvent(Dem_EventIdType EventId)
         Dem_PrimaryMemory[slotIdx].UdsStatus    = Dem_EventRuntime[EventId - 1U].UdsStatus;
         Dem_PrimaryMemory[slotIdx].Timestamp    = Dem_TimestampCounter;
         Dem_PrimaryMemory[slotIdx].ConsecutiveFailed = Dem_EventRuntime[EventId - 1U].ConfirmCounter;
+        wroteOrUpdated = TRUE;
     }
     else {
         /* --- Allocate new slot --- */
@@ -160,6 +206,7 @@ uint8 Dem_Memory_StoreEvent(Dem_EventIdType EventId)
         Dem_PrimaryMemory[slotIdx].FailedCycleCounter   = 0U;
         Dem_PrimaryMemory[slotIdx].ConsecutiveFailed    = 1U;
         Dem_PrimaryMemory[slotIdx].Timestamp            = Dem_TimestampCounter;
+        wroteOrUpdated = TRUE;
     }
 
 #if (DEM_FREEZE_FRAME_SUPPORT == STD_ON)
@@ -167,6 +214,12 @@ uint8 Dem_Memory_StoreEvent(Dem_EventIdType EventId)
 #endif
 #if (DEM_EXTENDED_DATA_SUPPORT == STD_ON)
     Dem_Memory_CaptureExtendedData(slotIdx, EventId);
+#endif
+
+#if (DEM_CB_ENABLE_EVENT_DATA_CHANGED == STD_ON)
+    if (wroteOrUpdated) {
+        EventDataChanged(EventId);
+    }
 #endif
 
     return TRUE;
@@ -286,12 +339,4 @@ void Dem_Memory_UpdateAging(void)
     }
 }
 
-/* =========================================================================
- * Internal debounce helper (forward declaration resolved here)
- * ========================================================================= */
-extern Dem_EventStatusType Dem_Debounce_ProcessStatus(Dem_EventIdType EventId,
-                                                       Dem_EventStatusType Status);
-extern void                Dem_Debounce_Reset(Dem_EventIdType EventId,
-                                               Dem_DebounceResetStatusType ResetStatus);
-extern sint8               Dem_Debounce_GetFDC(Dem_EventIdType EventId);
-extern Dem_DebouncingStateType Dem_Debounce_GetState(Dem_EventIdType EventId);
+/* (Other debounce symbols are declared in Dem.c; no need here.) */

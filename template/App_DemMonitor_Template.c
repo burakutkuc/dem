@@ -15,6 +15,91 @@
  */
 
 #include "Dem.h"
+#include "Dem_Cbk.h"
+#include "Dem_FreezeFrameProvider.h"
+
+/* =========================================================================
+ * External provider callbacks (example implementations)
+ * ========================================================================= */
+
+/* Forward declarations for HAL stubs (defined below) */
+static float HAL_ReadVoltage(void);
+static float HAL_ReadTemperature1(void);
+static float HAL_ReadTemperature2(void);
+
+#if (DEM_CB_ENABLE_READ_DATA_ELEMENT == STD_ON)
+Std_ReturnType ReadDataElement(Dem_EventIdType EventId,
+                               uint16 DataElementId,
+                               uint8 *DestBuffer,
+                               uint16 *BufSize)
+{
+    (void)EventId;
+    if ((DestBuffer == NULL_PTR) || (BufSize == NULL_PTR)) {
+        return E_NOT_OK;
+    }
+
+    switch (DataElementId) {
+        case DEM_FF_DEID_BATTERY_MV: {
+            uint16 mv = (uint16)(HAL_ReadVoltage() * 1000.0f);
+            if (*BufSize < (uint16)sizeof(mv)) { return E_NOT_OK; }
+            *((uint16*)DestBuffer) = mv;
+            *BufSize = (uint16)sizeof(mv);
+            return E_OK;
+        }
+
+        case DEM_FF_DEID_TEMP1_CENTIDEGC: {
+            sint16 t = (sint16)(HAL_ReadTemperature1() * 100.0f);
+            if (*BufSize < (uint16)sizeof(t)) { return E_NOT_OK; }
+            *((sint16*)DestBuffer) = t;
+            *BufSize = (uint16)sizeof(t);
+            return E_OK;
+        }
+
+        case DEM_FF_DEID_TEMP2_CENTIDEGC: {
+            sint16 t = (sint16)(HAL_ReadTemperature2() * 100.0f);
+            if (*BufSize < (uint16)sizeof(t)) { return E_NOT_OK; }
+            *((sint16*)DestBuffer) = t;
+            *BufSize = (uint16)sizeof(t);
+            return E_OK;
+        }
+
+        default:
+            *BufSize = 0U;
+            return E_NOT_OK;
+    }
+}
+#endif
+
+#if (DEM_CB_ENABLE_EVENT_DATA_CHANGED == STD_ON)
+void EventDataChanged(Dem_EventIdType EventId)
+{
+    (void)EventId;
+    /* Example: application could mirror FF/EDR to log, or trigger diagnostics upload */
+}
+#endif
+
+#if (DEM_CB_ENABLE_CLEAR_EVENT_ALLOWED == STD_ON)
+Std_ReturnType ClearEventAllowed(Dem_EventIdType EventId)
+{
+    (void)EventId;
+    /* Example policy: always allow */
+    return E_OK;
+}
+#endif
+
+#if (DEM_CB_ENABLE_CLEAR_DTC_NOTIFICATION == STD_ON)
+void ClearDtcNotification(uint32 Dtc, Dem_DTCOriginType Origin)
+{
+    (void)Dtc; (void)Origin;
+}
+#endif
+
+#if (DEM_CB_ENABLE_INIT_MONITOR_FOR_EVENT == STD_ON)
+void InitMonitorForEvent(Dem_EventIdType EventId, Dem_InitMonitorReasonType Reason)
+{
+    (void)EventId; (void)Reason;
+}
+#endif
 
 /* =========================================================================
  * HAL stubs — replace with real sensor read functions

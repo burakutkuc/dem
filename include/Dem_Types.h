@@ -142,6 +142,16 @@ typedef uint8   Dem_DTCFormatType;
 #define DEM_DTC_FORMAT_J1939            (0x02U)
 
 /* -------------------------------------------------------------------------
+ * DTC translation format type (used by DCM interface)
+ * ------------------------------------------------------------------------- */
+typedef uint8 Dem_DTCTranslationFormatType;
+#define DEM_DTC_TRANSLATION_ISO15031_6      (0x00U)
+#define DEM_DTC_TRANSLATION_ISO14229_1      (0x01U)
+#define DEM_DTC_TRANSLATION_SAEJ2012_DA     (0x02U)
+#define DEM_DTC_TRANSLATION_ISO11992_4      (0x03U)
+#define DEM_DTC_TRANSLATION_J1939_73        (0x04U)
+
+/* -------------------------------------------------------------------------
  * §8.2.1.13 Dem_DTCOriginType
  * ------------------------------------------------------------------------- */
 typedef uint16  Dem_DTCOriginType;

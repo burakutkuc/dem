@@ -10,6 +10,7 @@
  */
 
 #include "Dem_Internal.h"
+#include "Dem_Cbk.h"
 
 /* Forward declarations of helpers defined at the bottom of this file */
 static void Dem_Internal_ProcessQualifiedStatus(Dem_EventIdType EventId,
@@ -57,6 +58,8 @@ extern void                 Dem_Nvm_Shutdown(void);
  */
 void Dem_Internal_UpdateUdsStatusFailed(Dem_EventIdType EventId)
 {
+    Dem_UdsStatusByteType oldSt = Dem_EventRuntime[EventId - 1U].UdsStatus;
+    Dem_MonitorStatusType oldMon = Dem_EventRuntime[EventId - 1U].MonitorStatus;
     Dem_UdsStatusByteType *st = &Dem_EventRuntime[EventId - 1U].UdsStatus;
 
     *st |=  (DEM_UDS_STATUS_TF | DEM_UDS_STATUS_TFTOC |
@@ -67,6 +70,27 @@ void Dem_Internal_UpdateUdsStatusFailed(Dem_EventIdType EventId)
     Dem_EventRuntime[EventId - 1U].MonitorStatus |= DEM_MONITOR_STATUS_TF;
     Dem_EventRuntime[EventId - 1U].MonitorStatus &=
         (Dem_MonitorStatusType)(~DEM_MONITOR_STATUS_TNCTOC);
+
+#if (DEM_CB_ENABLE_EVENT_UDS_STATUS_CHANGED == STD_ON)
+    if (oldSt != *st) {
+        DemTriggerOnEventUdsStatus(EventId, oldSt, *st);
+    }
+#endif
+#if (DEM_CB_ENABLE_GENERAL_INTERFACE == STD_ON)
+    if (oldSt != *st) {
+        DemGeneralTriggerOnEventUdsStatus(EventId, oldSt, *st);
+    }
+#endif
+#if (DEM_CB_ENABLE_MONITOR_STATUS_CHANGED == STD_ON)
+    if (oldMon != Dem_EventRuntime[EventId - 1U].MonitorStatus) {
+        DemTriggerOnMonitorStatus(EventId, oldMon, Dem_EventRuntime[EventId - 1U].MonitorStatus);
+    }
+#endif
+#if (DEM_CB_ENABLE_GENERAL_INTERFACE == STD_ON)
+    if (oldMon != Dem_EventRuntime[EventId - 1U].MonitorStatus) {
+        DemGeneralTriggerOnMonitorStatus(EventId, oldMon, Dem_EventRuntime[EventId - 1U].MonitorStatus);
+    }
+#endif
 }
 
 /**
@@ -75,12 +99,35 @@ void Dem_Internal_UpdateUdsStatusFailed(Dem_EventIdType EventId)
  */
 void Dem_Internal_UpdateUdsStatusPassed(Dem_EventIdType EventId)
 {
+    Dem_UdsStatusByteType oldSt = Dem_EventRuntime[EventId - 1U].UdsStatus;
+    Dem_MonitorStatusType oldMon = Dem_EventRuntime[EventId - 1U].MonitorStatus;
     Dem_UdsStatusByteType *st = &Dem_EventRuntime[EventId - 1U].UdsStatus;
 
     *st &= (Dem_UdsStatusByteType)(~(DEM_UDS_STATUS_TF | DEM_UDS_STATUS_TNCTOC));
 
     Dem_EventRuntime[EventId - 1U].MonitorStatus &=
         (Dem_MonitorStatusType)(~(DEM_MONITOR_STATUS_TF | DEM_MONITOR_STATUS_TNCTOC));
+
+#if (DEM_CB_ENABLE_EVENT_UDS_STATUS_CHANGED == STD_ON)
+    if (oldSt != *st) {
+        DemTriggerOnEventUdsStatus(EventId, oldSt, *st);
+    }
+#endif
+#if (DEM_CB_ENABLE_GENERAL_INTERFACE == STD_ON)
+    if (oldSt != *st) {
+        DemGeneralTriggerOnEventUdsStatus(EventId, oldSt, *st);
+    }
+#endif
+#if (DEM_CB_ENABLE_MONITOR_STATUS_CHANGED == STD_ON)
+    if (oldMon != Dem_EventRuntime[EventId - 1U].MonitorStatus) {
+        DemTriggerOnMonitorStatus(EventId, oldMon, Dem_EventRuntime[EventId - 1U].MonitorStatus);
+    }
+#endif
+#if (DEM_CB_ENABLE_GENERAL_INTERFACE == STD_ON)
+    if (oldMon != Dem_EventRuntime[EventId - 1U].MonitorStatus) {
+        DemGeneralTriggerOnMonitorStatus(EventId, oldMon, Dem_EventRuntime[EventId - 1U].MonitorStatus);
+    }
+#endif
 }
 
 /**
@@ -256,6 +303,16 @@ void Dem_Init(const Dem_ConfigType *configPtr)
 
     /* Restore NvM data */
     (void)Dem_Nvm_Init();
+
+#if (DEM_CB_ENABLE_INIT_MONITOR_FOR_EVENT == STD_ON)
+    /* Notify upper layer to initialise each monitor */
+    {
+        uint8 i;
+        for (i = 0U; i < DEM_MAX_NUMBER_OF_EVENTS; i++) {
+            InitMonitorForEvent((Dem_EventIdType)(i + 1U), DEM_INIT_MONITOR_RESTART);
+        }
+    }
+#endif
 
     Dem_State = DEM_INITIALIZED;
 }
@@ -470,6 +527,17 @@ Std_ReturnType Dem_RestartOperationCycle(Dem_OperationCycleIdType OperationCycle
         return E_NOT_OK;
     }
     Dem_Internal_OperationCycleEnd();
+
+#if (DEM_CB_ENABLE_INIT_MONITOR_FOR_EVENT == STD_ON)
+    /* Operation cycle restart implies re-init of monitor status */
+    {
+        uint8 i;
+        for (i = 0U; i < DEM_MAX_NUMBER_OF_EVENTS; i++) {
+            InitMonitorForEvent((Dem_EventIdType)(i + 1U), DEM_INIT_MONITOR_RESTART);
+        }
+    }
+#endif
+
     return E_OK;
 }
 
@@ -509,12 +577,32 @@ Std_ReturnType Dem_ClearDTC(uint8 ClientId)
 
     if (Dem_ClientState.SelectedDTC == DEM_DTC_GROUP_ALL_DTCS) {
         /* Clear all */
+#if (DEM_CB_ENABLE_CLEAR_EVENT_ALLOWED == STD_ON)
+        for (i = 0U; i < DEM_MAX_NUMBER_OF_EVENTS; i++) {
+            if (ClearEventAllowed((Dem_EventIdType)(i + 1U)) != E_OK) {
+                Dem_ClientState.ClearPending = FALSE;
+                return E_NOT_OK;
+            }
+        }
+#endif
         Dem_Memory_ClearAll();
+#if (DEM_CB_ENABLE_CLEAR_DTC_NOTIFICATION == STD_ON)
+        ClearDtcNotification(DEM_DTC_GROUP_ALL_DTCS, DEM_DTC_ORIGIN_PRIMARY_MEMORY);
+#endif
     } else {
         /* Clear single DTC: find matching EventId */
         for (i = 0U; i < DEM_MAX_NUMBER_OF_EVENTS; i++) {
             if (Dem_EventCfg[i].Dtc == Dem_ClientState.SelectedDTC) {
+#if (DEM_CB_ENABLE_CLEAR_EVENT_ALLOWED == STD_ON)
+                if (ClearEventAllowed((Dem_EventIdType)(i + 1U)) != E_OK) {
+                    Dem_ClientState.ClearPending = FALSE;
+                    return E_NOT_OK;
+                }
+#endif
                 Dem_Memory_ClearEntry((Dem_EventIdType)(i + 1U));
+#if (DEM_CB_ENABLE_CLEAR_DTC_NOTIFICATION == STD_ON)
+                ClearDtcNotification(Dem_ClientState.SelectedDTC, DEM_DTC_ORIGIN_PRIMARY_MEMORY);
+#endif
                 break;
             }
         }
